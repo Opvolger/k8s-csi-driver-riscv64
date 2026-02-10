@@ -13,7 +13,8 @@ First fix running qemu for multi arch docker builds [multi arch docker](https://
 docker run --privileged --rm tonistiigi/binfmt --install all
 
 # clone project
-git clone 
+git clone https://github.com/Opvolger/k8s-csi-driver-riscv64.git
+cd k8s-csi-driver-riscv64
 # Login to docker
 docker login
 # Build the images (change 'opvolger' to your docker username or register with username)
