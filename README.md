@@ -46,7 +46,7 @@ image:
     pullPolicy: IfNotPresent
   nodeDriverRegistrar:
     repository: /csi-node-driver-registrar  # done
-    tag: 2.15.canary
+    tag: 2.15-canary
     pullPolicy: IfNotPresent
   csiproxy:
     repository: ghcr.io/kubernetes-sigs/sig-windows/csi-proxy  # not needed only windows
