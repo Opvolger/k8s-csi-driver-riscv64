@@ -56,7 +56,7 @@ image:
 linux:
     kubelet: /var/lib/k0s/kubelet
 windows:
-    kubelet: 'C:\var\lib\k0s\kubelet'
+    kubelet: 'C:\\var\\lib\\k0s\\kubelet'
 ```
 
 ```bash
@@ -66,7 +66,7 @@ helm install csi-driver-smb csi-driver-smb/csi-driver-smb --namespace kube-syste
 
 ## Use CSI SMB
 
-See []
+See github [https://github.com/kubernetes-csi/csi-driver-smb/blob/release-1.20/deploy/example/e2e_usage.md]
 
 ## Deploy CSI ISCSI
 
