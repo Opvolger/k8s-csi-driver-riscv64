@@ -1,3 +1,8 @@
+# k8s release
+RELEASE_BRANCH ?= master
+RELEASE_REPO ?= https://github.com/kubernetes/release.git
+RELEASE_PATCHES ?= patches/release
+
 # node-driver-registrar
 NODE_DRIVER_REGISTRAR_BRANCH ?= release-2.15
 NODE_DRIVER_REGISTRAR_REPO ?= https://github.com/kubernetes-csi/node-driver-registrar
@@ -50,7 +55,11 @@ define checkout_code_add_patches
 	cd $(BUILD_ROOT)/${$@_DIR} && git apply --ignore-whitespace --whitespace=fix ../../${$@_PATCHES}/*.patch
 endef
 
-docker_images: docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer
+docker_images: docker_release docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer
+
+docker_release:
+	@$(call checkout_code_add_patches,"release",${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base push CONFIG="trixie" IMAGE_VERSION="trixie-v1.0.0" ALL_ARCH="amd64 arm64 riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME)
 
 docker_csi_node_driver_registrar:
 	@$(call checkout_code_add_patches,"node-driver-registrar",${NODE_DRIVER_REGISTRAR_REPO},${NODE_DRIVER_REGISTRAR_BRANCH},${NODE_DRIVER_REGISTRAR_PATCHES})
