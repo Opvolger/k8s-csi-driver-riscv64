@@ -1,0 +1,28 @@
+---
+all:
+  children:
+    linux:
+      hosts:
+        rp5.cluster:
+          ansible_host: 192.168.8.116
+          arch: amd64
+        rp3b.cluster:
+          ansible_host: 192.168.8.136
+          arch: amd64
+        sfvf2lite.cluster:
+          ansible_host: 192.168.8.150
+          arch: riscv64
+    k0s:
+      hosts:
+        rp5.cluster:
+        rp3b.cluster:
+        sfvf2lite.cluster:
+    k0s_init:
+      hosts:
+        sfvf2lite.cluster:
+    k0s_controller:
+      hosts:
+        rp5.cluster:
+        rp3b.cluster:
+        sfvf2lite.cluster:
+    k0s_worker:

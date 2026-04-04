@@ -1,0 +1,8 @@
+---
+- name: Setup for node or server
+  hosts: k0s
+  gather_facts: false
+  tasks:
+    - name: Unconditionally shut down the machine with all defaults
+      become: true
+      community.general.shutdown:

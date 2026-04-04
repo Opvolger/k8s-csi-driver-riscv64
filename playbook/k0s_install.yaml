@@ -1,0 +1,57 @@
+---
+- name: Setup for all or servers
+  become: true
+  hosts: k0s
+  tasks:
+    - name: Server and node install packages
+      ansible.builtin.include_tasks: tasks/k0s_install_stuff.yaml
+
+    - name: Server and node firewall
+      ansible.builtin.include_tasks: tasks/k0s_setup_firewall.yaml
+
+- name: Setup for all or servers
+  become: true
+  hosts: k0s_init
+  tasks:
+    # TODO download k0s for not riscv-v
+    - name: Copy k0s-riscv64 to /usr/local/bin
+      ansible.builtin.copy:
+        src: /home/opvolger/k0s-riscv64
+        dest: /usr/local/bin/k0s
+        remote_src: true
+        mode: '0755'
+      when: '"riscv64" in arch'
+
+    - name: Ensures /etc/k0s dir exists
+      ansible.builtin.file:
+        path: "/etc/k0s"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Template a file to /etc/file.conf
+      ansible.builtin.template:
+        src: k0s.yaml
+        dest: /etc/k0s/k0s.yaml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Check if /etc/systemd/system/k0scontroller.service
+      ansible.builtin.stat:
+        path: /etc/systemd/system/k0scontroller.service
+      changed_when: false
+      register: k0scontroller
+
+    - name: Create k0s initial controller service with install command
+      register: install_initial_controller_cmd
+      ansible.builtin.shell: |
+        k0s install controller --enable-worker --no-taints -c /etc/k0s/k0s.yaml -e ETCD_UNSUPPORTED_ARCH={{ arch }} --start
+      args:
+        executable: /bin/bash
+        creates: /etc/systemd/system/k0scontroller.service
+      changed_when: install_initial_controller_cmd | length > 0
+      when: not k0scontroller.stat.exists
+
+# https://github.com/movd/k0s-ansible/blob/main/roles/k0s/initial_controller/tasks/main.yml

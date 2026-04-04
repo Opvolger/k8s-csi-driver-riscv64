@@ -1,0 +1,91 @@
+- name: Permit 2380/tcp traffic etcd
+  ansible.posix.firewalld:
+    port: 2380/tcp
+    permanent: true
+    state: enabled
+  register: permit2380
+
+- name: Permit 6443/tcp traffic kube-apiserver
+  ansible.posix.firewalld:
+    port: 6443/tcp
+    permanent: true
+    state: enabled
+  register: permit6443
+
+- name: Permit 179/tcp traffic kube-router
+  ansible.posix.firewalld:
+    port: 179/tcp
+    permanent: true
+    state: enabled
+  register: permit179
+
+# - name: Permit 4789/udp traffic calico
+#   ansible.posix.firewalld:
+#     port: 4789/udp
+#     permanent: true
+#     state: enabled
+#   register: permit4789
+
+- name: Permit 10250/tcp kubelet
+  ansible.posix.firewalld:
+    port: 10250/tcp
+    permanent: true
+    state: enabled
+  register: permit10250
+
+- name: Permit 9443/tcp k0s api
+  ansible.posix.firewalld:
+    port: 9443/tcp
+    permanent: true
+    state: enabled
+  register: permit9443
+
+- name: Permit 8132/tcp konnectivity
+  ansible.posix.firewalld:
+    port: 8132/tcp
+    permanent: true
+    state: enabled
+  register: permit8132
+
+- name: Permit 112/tcp keepalived
+  ansible.posix.firewalld:
+    port: 112/tcp
+    permanent: true
+    state: enabled
+  register: permit112
+
+- name: Permit pods traffic
+  ansible.posix.firewalld:
+    zone: trusted
+    source: 10.42.0.0/16 # pods
+    permanent: true
+    state: enabled
+  register: permitPods
+
+- name: Permit services traffic
+  ansible.posix.firewalld:
+    zone: trusted
+    source: 10.43.0.0/16 # services
+    permanent: true
+    state: enabled
+  register: permitServices
+
+- name: Always reload firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+  when: permitServices.changed or
+        permitPods.changed or
+        permit2380.changed or
+        permit6443.changed or
+        permit179.changed or
+        permit10250.changed or
+        permit9443.changed or
+        permit8132.changed or
+        permit112.changed
+
+- name: Enable a firewalld
+  ansible.builtin.systemd_service:
+    name: firewalld
+    state: started
+    enabled: true
