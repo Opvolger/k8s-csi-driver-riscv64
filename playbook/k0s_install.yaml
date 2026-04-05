@@ -1,7 +1,7 @@
 ---
-- name: Setup 1st node
+- name: Setup all controller nodes
   become: true
-  hosts: k0s_init
+  hosts: k0s_controller
   tasks:
     - name: Ensures /etc/k0s dir exists
       ansible.builtin.file:
@@ -19,6 +19,10 @@
         group: root
         mode: '0644'
 
+- name: Setup 1st node
+  become: true
+  hosts: k0s_init
+  tasks:
     - name: Check if /etc/systemd/system/k0scontroller.service
       ansible.builtin.stat:
         path: /etc/systemd/system/k0scontroller.service
@@ -44,8 +48,9 @@
       changed_when: false
       retries: 15
       delay: 15
-      failed_when: ( ('NotReady' in ready_controller_cmd.stdout) or
-        (ready_controller_cmd.rc == 1) )
+      failed_when: (('NotReady' in ready_controller_cmd.stdout) or
+        (ready_controller_cmd.rc == 1) or
+        ('No resources found' in ready_controller_cmd.stderr))
       # when: not k0scontroller.stat.exists
 
     - name: Copy certs to local
