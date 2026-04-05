@@ -1,0 +1,28 @@
+---
+# - name: Setup for all or servers
+#   become: true
+#   hosts: k0s
+#   tasks:
+#     - name: Server and node install packages
+#       ansible.builtin.include_tasks: tasks/k0s_install_stuff.yaml
+
+#     - name: Server and node firewall
+#       ansible.builtin.include_tasks: tasks/k0s_setup_firewall.yaml
+
+- name: Setup for all or servers
+  become: true
+  hosts: k0s
+  tasks:
+    # TODO download k0s for riscv-v
+    - name: Copy k0s-arch to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/home/opvolger/k0s-{{ arch }}"
+        dest: /usr/local/bin/k0s
+        remote_src: true
+        mode: '0755'
+    #   when: '"riscv64" in arch'
+
+    # - name: Install k0s
+    #   ansible.builtin.shell: |
+    #     curl -sSLf https://get.k0s.sh | sudo sh
+    #   when: '"riscv64" not in arch'

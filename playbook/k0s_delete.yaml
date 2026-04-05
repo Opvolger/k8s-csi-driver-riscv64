@@ -1,0 +1,26 @@
+---
+- name: Setup for all or servers
+  become: true
+  hosts: k0s
+  tasks:
+    - name: Check if /etc/systemd/system/k0scontroller.service
+      ansible.builtin.stat:
+        path: /etc/systemd/system/k0scontroller.service
+      changed_when: false
+      register: k0scontroller
+
+    - name: Stop and Reset k0s
+      register: reset_controller_cmd
+      ansible.builtin.shell: |
+        k0s stop
+        k0s reset
+      args:
+        executable: /bin/bash
+      changed_when: reset_controller_cmd | length > 0
+      when: k0scontroller.stat.exists
+
+    - name: Unconditionally reboot
+      become: true
+      ansible.builtin.reboot:
+
+# https://github.com/movd/k0s-ansible/blob/main/roles/k0s/initial_controller/tasks/main.yml

@@ -8,7 +8,16 @@
     name:
       - wget
       - tar
+      - netplan.io
+      - systemd-resolved
     state: present
+
+- name: Delete some stuff
+  ansible.builtin.apt:
+    name:
+      - ifupdown
+      - resolvconf
+    state: absent
 
 - name: Check if /usr/local/bin/helm exists
   ansible.builtin.stat:

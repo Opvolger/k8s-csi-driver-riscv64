@@ -1,27 +1,8 @@
 ---
-- name: Setup for all or servers
-  become: true
-  hosts: k0s
-  tasks:
-    - name: Server and node install packages
-      ansible.builtin.include_tasks: tasks/k0s_install_stuff.yaml
-
-    - name: Server and node firewall
-      ansible.builtin.include_tasks: tasks/k0s_setup_firewall.yaml
-
-- name: Setup for all or servers
+- name: Setup 1st node
   become: true
   hosts: k0s_init
   tasks:
-    # TODO download k0s for not riscv-v
-    - name: Copy k0s-riscv64 to /usr/local/bin
-      ansible.builtin.copy:
-        src: /home/opvolger/k0s-riscv64
-        dest: /usr/local/bin/k0s
-        remote_src: true
-        mode: '0755'
-      when: '"riscv64" in arch'
-
     - name: Ensures /etc/k0s dir exists
       ansible.builtin.file:
         path: "/etc/k0s"
@@ -30,7 +11,7 @@
         group: root
         mode: '0755'
 
-    - name: Template a file to /etc/file.conf
+    - name: Template a file to /etc/k0s/k0s.yaml
       ansible.builtin.template:
         src: k0s.yaml
         dest: /etc/k0s/k0s.yaml
@@ -52,6 +33,150 @@
         executable: /bin/bash
         creates: /etc/systemd/system/k0scontroller.service
       changed_when: install_initial_controller_cmd | length > 0
+      when: not k0scontroller.stat.exists
+
+    - name: Wait for Ready k0s initial controller
+      register: ready_controller_cmd
+      ansible.builtin.shell: |
+        k0s kubectl get nodes
+      args:
+        executable: /bin/bash
+      changed_when: false
+      retries: 15
+      delay: 15
+      failed_when: ( ('NotReady' in ready_controller_cmd.stdout) or
+        (ready_controller_cmd.rc == 1) )
+      # when: not k0scontroller.stat.exists
+
+    - name: Copy certs to local
+      ansible.builtin.fetch:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        flat: true
+      loop:
+        - src: /var/lib/k0s/pki/ca.key
+          dest: "{{ playbook_dir }}/temp/ca.key"
+        - src: /var/lib/k0s/pki/ca.crt
+          dest: "{{ playbook_dir }}/temp/ca.crt"
+        - src: /var/lib/k0s/pki/sa.key
+          dest: "{{ playbook_dir }}/temp/sa.key"
+        - src: /var/lib/k0s/pki/sa.pub
+          dest: "{{ playbook_dir }}/temp/sa.pub"
+        - src: /var/lib/k0s/pki/etcd/ca.key
+          dest: "{{ playbook_dir }}/temp/etcd/ca.key"
+        - src: /var/lib/k0s/pki/etcd/ca.crt
+          dest: "{{ playbook_dir }}/temp/etcd/ca.crt"
+
+- name: Setup other controller nodes
+  become: true
+  hosts: k0s_controller
+  tasks:
+    - name: Check if /etc/systemd/system/k0scontroller.service
+      ansible.builtin.stat:
+        path: /etc/systemd/system/k0scontroller.service
+      changed_when: false
+      register: k0scontroller
+
+    - name: Get token from 1st node
+      register: token
+      ansible.builtin.shell: |
+        k0s token create --role=controller --expiry=1h
+      args:
+        executable: /bin/bash
+      changed_when: false
+      delegate_to: "{{ groups.k0s_init | first }}"
+      when: not k0scontroller.stat.exists
+
+    - name: Create /tmp/token for joining
+      ansible.builtin.copy:
+        content: "{{ token.stdout }}"
+        dest: "/tmp/token"
+        owner: root
+        group: root
+        mode: '0644'
+      when: not k0scontroller.stat.exists
+
+    - name: Create k0s initial controller service with install command do not start
+      register: install_controller_cmd
+      ansible.builtin.shell: |
+        k0s install controller --enable-worker --no-taints -c /etc/k0s/k0s.yaml -e ETCD_UNSUPPORTED_ARCH={{ arch }} --token-file /tmp/token
+      args:
+        executable: /bin/bash
+        creates: /etc/systemd/system/k0scontroller.service
+      changed_when: install_controller_cmd | length > 0
+      when: not k0scontroller.stat.exists
+
+    - name: Ensures /var/lib/k0s dir exists
+      ansible.builtin.file:
+        path: "/var/lib/k0s"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Ensures /var/lib/k0s/pki dir exists
+      ansible.builtin.file:
+        path: "/var/lib/k0s"
+        state: directory
+        owner: root
+        group: root
+        mode: '0751'
+
+    - name: Ensures /var/lib/k0s/pki/etcd dir exists
+      ansible.builtin.file:
+        path: "/var/lib/k0s/pki/etcd"
+        state: directory
+        owner: etcd
+        group: root
+        mode: '0711'
+
+    - name: Copy certificates from 1st node
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - src: "{{ playbook_dir }}/temp/ca.key"
+          dest: /var/lib/k0s/pki/ca.key
+          mode: '0640'
+          owner: kube-apiserver
+          group: root
+        - src: "{{ playbook_dir }}/temp/ca.crt"
+          dest: /var/lib/k0s/pki/ca.crt
+          mode: '0644'
+          owner: root
+          group: root
+        - src: "{{ playbook_dir }}/temp/sa.key"
+          dest: /var/lib/k0s/pki/sa.key
+          mode: '0640'
+          owner: kube-apiserver
+          group: root
+        - src: "{{ playbook_dir }}/temp/sa.pub"
+          dest: /var/lib/k0s/pki/sa.pub
+          mode: '0644'
+          owner: root
+          group: root
+        - src: "{{ playbook_dir }}/temp/etcd/ca.key"
+          dest: /var/lib/k0s/pki/etcd/ca.key
+          mode: '0640'
+          owner: etcd
+          group: root
+        - src: "{{ playbook_dir }}/temp/etcd/ca.crt"
+          dest: /var/lib/k0s/pki/etcd/ca.crt
+          mode: '0644'
+          owner: etcd
+          group: root
+      when: not k0scontroller.stat.exists
+
+    - name: Start k0s with correct certificates
+      register: start_controller_cmd
+      ansible.builtin.shell: |
+        k0s start
+      args:
+        executable: /bin/bash
+      changed_when: start_controller_cmd | length > 0
       when: not k0scontroller.stat.exists
 
 # https://github.com/movd/k0s-ansible/blob/main/roles/k0s/initial_controller/tasks/main.yml

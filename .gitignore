@@ -1,2 +1,5 @@
 build/**
 .ansible/.lock
+playbook/temp/**/*.crt
+playbook/temp/**/*.key
+playbook/temp/**/*.pub

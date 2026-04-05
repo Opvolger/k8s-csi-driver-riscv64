@@ -4,13 +4,22 @@ all:
     linux:
       hosts:
         rp5.cluster:
-          ansible_host: 192.168.8.116
-          arch: amd64
+          ansible_host: 192.168.8.10
+          network:
+            ipv4: 192.168.8.10
+            interface: eth0
+          arch: arm64
         rp3b.cluster:
-          ansible_host: 192.168.8.136
-          arch: amd64
+          ansible_host: 192.168.8.11
+          network:
+            ipv4: 192.168.8.11
+            interface: eth0
+          arch: arm64
         sfvf2lite.cluster:
-          ansible_host: 192.168.8.150
+          ansible_host: 192.168.8.12
+          network:
+            ipv4: 192.168.8.12
+            interface: end0
           arch: riscv64
     k0s:
       hosts:

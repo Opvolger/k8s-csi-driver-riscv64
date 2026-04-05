@@ -5,8 +5,8 @@ metadata:
   namespace: kube-system
 spec:
   api:
-    # externalAddress: cluster.k8s.opvolger.eu
-    address: {{ ansible_host }}
+    externalAddress: 192.168.8.1
+    address: 192.168.8.1
     ca:
       certificatesExpireAfter: 8760h0m0s
       expiresAfter: 87600h0m0s
