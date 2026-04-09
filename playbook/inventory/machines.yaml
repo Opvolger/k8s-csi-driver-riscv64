@@ -5,18 +5,29 @@ all:
       hosts:
         rp5.cluster:
           ansible_host: 192.168.8.10
+          k8s:
+            role: controller+worker
+            k0sBinaryPath: /home/opvolger/k0s-arm64
           network:
             ipv4: 192.168.8.10
             interface: eth0
           arch: arm64
         rp3b.cluster:
           ansible_host: 192.168.8.11
+          k8s:
+            role: controller+worker
+            k0sBinaryPath: /home/opvolger/k0s-arm64
           network:
             ipv4: 192.168.8.11
             interface: eth0
           arch: arm64
         sfvf2lite.cluster:
           ansible_host: 192.168.8.12
+          k8s:
+            role: controller+worker
+            k0sBinaryPath: /home/opvolger/k0s-riscv64-4
+            environment:
+              ETCD_UNSUPPORTED_ARCH: riscv64
           network:
             ipv4: 192.168.8.12
             interface: end0

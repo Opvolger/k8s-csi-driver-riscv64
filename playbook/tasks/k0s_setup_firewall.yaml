@@ -19,12 +19,12 @@
     state: enabled
   register: permit179
 
-# - name: Permit 4789/udp traffic calico
-#   ansible.posix.firewalld:
-#     port: 4789/udp
-#     permanent: true
-#     state: enabled
-#   register: permit4789
+- name: Permit 4789/udp traffic calico
+  ansible.posix.firewalld:
+    port: 4789/udp
+    permanent: true
+    state: enabled
+  register: permit4789
 
 - name: Permit 10250/tcp kubelet
   ansible.posix.firewalld:
@@ -54,6 +54,20 @@
     state: enabled
   register: permit112
 
+- name: Permit 2379/tcp etcd server
+  ansible.posix.firewalld:
+    port: 2379/tcp
+    permanent: true
+    state: enabled
+  register: permit2379
+
+- name: Permit 2380/tcp etcd peer communication
+  ansible.posix.firewalld:
+    port: 2380/tcp
+    permanent: true
+    state: enabled
+  register: permit2380
+
 - name: Permit pods traffic
   ansible.posix.firewalld:
     zone: trusted
@@ -82,7 +96,10 @@
         permit10250.changed or
         permit9443.changed or
         permit8132.changed or
-        permit112.changed
+        permit112.changed or
+        permit2379.changed or
+        permit2380.changed or
+        permit4789.changed
 
 - name: Enable a firewalld
   ansible.builtin.systemd_service:

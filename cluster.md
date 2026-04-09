@@ -3,6 +3,14 @@
 https://docs.k0sproject.io/v1.21.2+k0s.1/k0s-multi-node/#5-add-controllers-to-the-cluster
 https://docs.k0sproject.io/v1.35.2+k0s.0/high-availability/
 
+## Build k0s
+
+```bash
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+```
+
+add `--platform=riscv64` on every $(DOCKER) command in Makefile
+
 ## HAProxy
 
 Read [high-availability](https://docs.k0sproject.io/v1.35.2+k0s.0/high-availability/) in k0sproject

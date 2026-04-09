@@ -6,7 +6,7 @@ metadata:
 spec:
   api:
     externalAddress: 192.168.8.1
-    address: 192.168.8.1
+    address: {{ ansible_host }}
     ca:
       certificatesExpireAfter: 8760h0m0s
       expiresAfter: 87600h0m0s
