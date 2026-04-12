@@ -6,22 +6,31 @@ metadata:
 spec:
   hosts:
   # https://serverfault.com/questions/160581/how-to-setup-passwordless-sudo-on-linux
-{% for host in groups["k0s"] %}
   - ssh:
-      address: {{ hostvars[host].ansible_host }}
+      address: 192.168.8.13
       user: opvolger
-    role: {{ hostvars[host].k8s.role }}
-    k0sBinaryPath: {{ hostvars[host].k8s.k0sBinaryPath }}
-{% if hostvars[host].k8s.noTaints is defined %}
-    noTaints: {{ hostvars[host].k8s.noTaints }}
-{% endif %}
-{% if hostvars[host].k8s.environment is defined %}
+    role: worker
+    k0sBinaryPath: /home/opvolger/k0s-amd64
+  - ssh:
+      address: 192.168.8.10
+      user: opvolger
+    role: controller+worker
+    k0sBinaryPath: /home/opvolger/k0s-arm64
+    noTaints: True
+  - ssh:
+      address: 192.168.8.11
+      user: opvolger
+    role: controller+worker
+    k0sBinaryPath: /home/opvolger/k0s-arm64
+    noTaints: True
+  - ssh:
+      address: 192.168.8.12
+      user: opvolger
+    role: controller+worker
+    k0sBinaryPath: /home/opvolger/k0s-riscv64
+    noTaints: True
     environment:
-{% for key, value in hostvars[host].k8s.environment.items() %}
-      {{ key }}: {{ value }}
-{% endfor %}
-{% endif %}
-{% endfor %}
+      ETCD_UNSUPPORTED_ARCH: riscv64
   k0s:
     config:
       apiVersion: k0s.k0sproject.io/v1beta1

@@ -19,6 +19,27 @@
     state: enabled
   register: permit179
 
+- name: Permit 7946/tcp MetalLB speakers for leader election and memberlist gossip
+  ansible.posix.firewalld:
+    port: 7946/tcp
+    permanent: true
+    state: enabled
+  register: permit7946tcp
+
+- name: Permit 7946/udp MetalLB speakers for leader election and memberlist gossip
+  ansible.posix.firewalld:
+    port: 7946/udp
+    permanent: true
+    state: enabled
+  register: permit7946udp
+
+- name: Permit 7472/tcp MetalLB for metrics (used for readiness/liveness checks)
+  ansible.posix.firewalld:
+    port: 7472/tcp
+    permanent: true
+    state: enabled
+  register: permit7472
+
 - name: Permit 4789/udp traffic calico
   ansible.posix.firewalld:
     port: 4789/udp
@@ -61,6 +82,34 @@
     state: enabled
   register: permit2379
 
+- name: Permit 9100/tcp traefik METRICS
+  ansible.posix.firewalld:
+    port: 9100/tcp
+    permanent: true
+    state: enabled
+  register: permit9100
+
+- name: Permit 8080/tcp traefik TRAEFIK
+  ansible.posix.firewalld:
+    port: 8080/tcp
+    permanent: true
+    state: enabled
+  register: permit8080
+
+- name: Permit 8000/tcp traefik WEB
+  ansible.posix.firewalld:
+    port: 8000/tcp
+    permanent: true
+    state: enabled
+  register: permit8000
+
+- name: Permit 8443/tcp traefik WEBSECURE
+  ansible.posix.firewalld:
+    port: 8443/tcp
+    permanent: true
+    state: enabled
+  register: permit8443
+
 - name: Permit 2380/tcp etcd peer communication
   ansible.posix.firewalld:
     port: 2380/tcp
@@ -76,6 +125,15 @@
     state: enabled
   register: permitPods
 
+- name: Permit pods traffic
+  ansible.posix.firewalld:
+    zone: trusted
+    source: 10.244.0.0/16 # pod_network_cidr
+    permanent: true
+    state: enabled
+  register: permitPods2
+
+
 - name: Permit services traffic
   ansible.posix.firewalld:
     zone: trusted
@@ -90,6 +148,7 @@
     state: reloaded
   when: permitServices.changed or
         permitPods.changed or
+        permitPods2.changed or
         permit2380.changed or
         permit6443.changed or
         permit179.changed or
@@ -99,7 +158,14 @@
         permit112.changed or
         permit2379.changed or
         permit2380.changed or
-        permit4789.changed
+        permit4789.changed or
+        permit7472.changed or
+        permit7946udp.changed or
+        permit7946tcp.changed or
+        permit9100.changed or
+        permit8080.changed or
+        permit8000.changed or
+        permit8443.changed
 
 - name: Enable a firewalld
   ansible.builtin.systemd_service:

@@ -1,0 +1,16 @@
+
+# gateway:
+#   listeners:
+#     web:
+#       namespacePolicy:
+#         from: All
+
+# Service configuration - this is where MetalLB integration happens
+service:
+  # Enable the Traefik service
+  enabled: true
+  # Annotations for MetalLB configuration
+  annotations:
+    # Request a specific IP from MetalLB's pool (optional)
+    # Remove this to let MetalLB auto-assign an IP
+    metallb.universe.tf/loadBalancerIPs: "192.168.8.50"

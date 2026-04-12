@@ -1,0 +1,62 @@
+---
+- name: Setup all controller nodes
+  hosts: localhost
+  tasks:
+    - name: Render the yaml
+      ansible.builtin.set_fact:
+        k8s_yaml: '{{ lookup("template", "templates/k0sctl.yaml") }}'
+
+    - name: Print yaml
+      ansible.builtin.debug:
+        msg: "{{ k8s_yaml }}"
+
+    - name: Copy using inline content
+      ansible.builtin.copy:
+        content: "{{ k8s_yaml }}"
+        dest: "{{ playbook_dir }}/temp/k0sctl.yaml"
+        owner: opvolger
+        group: opvolger
+        mode: '0644'
+
+    - name: Check if /home/opvolger/.local/bin/k0sctl exists
+      ansible.builtin.stat:
+        path: /home/opvolger/.local/bin/k0sctl
+      changed_when: false
+      register: k0sctl_bin
+
+    - name: Install k0sctl
+      ansible.builtin.shell: |
+        wget https://github.com/k0sproject/k0sctl/releases/download/v0.29.0/k0sctl-linux-amd64
+        mv {{ playbook_dir }}/temp/k0sctl-linux-amd64 /home/opvolger/.local/bin/k0sctl
+        chmod +x /home/opvolger/.local/bin/k0sctl
+      args:
+        chdir: "{{ playbook_dir }}/temp"
+        executable: /bin/bash
+      when: not k0sctl_bin.stat.exists
+
+    - name: Setup nodes with k0sctl
+      block:
+          #  ssh: handshake failed ? ssh-keygen -R [ipv4] and ssh [ipv4]
+        - name: Setup nodes with k0sctl
+          ansible.builtin.shell: |
+            k0sctl apply --config k0sctl.yaml
+          args:
+            chdir: "{{ playbook_dir }}/temp"
+            executable: /bin/bash
+      rescue:
+        - name: Setup nodes with k0sctl
+          ansible.builtin.shell: |
+            ssh-keygen -R {{ hostvars[item].network.ipv4 }}
+          with_items: "{{ groups['k0s'] }}"
+
+    - name: Get config values
+      ansible.builtin.shell: |
+        k0sctl kubeconfig admin --config k0sctl.yaml
+      args:
+        chdir: "{{ playbook_dir }}/temp"
+        executable: /bin/bash
+      register: kubeconfig
+
+    - name: Print kubeconfig
+      ansible.builtin.debug:
+        msg: "{{ kubeconfig.stdout_lines }}"

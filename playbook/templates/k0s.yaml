@@ -98,4 +98,4 @@ spec:
       peerAddress: {{ ansible_host }}
     type: etcd
   telemetry:
-    enabled: false
+    enabled: true

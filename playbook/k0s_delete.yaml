@@ -1,5 +1,5 @@
 ---
-- name: Setup for all or servers
+- name: Delete k0s for all or servers
   become: true
   hosts: k0s
   tasks:

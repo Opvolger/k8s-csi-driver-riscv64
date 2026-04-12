@@ -1,7 +1,7 @@
 - name: Update repositories cache and upgrade package
   ansible.builtin.apt:
-    upgrade: yes
-    update_cache: yes
+    upgrade: true
+    update_cache: true
 
 - name: Installed some stuff 1
   ansible.builtin.apt:
@@ -10,6 +10,7 @@
       - tar
       - netplan.io
       - systemd-resolved
+      - procps
     state: present
 
 - name: Delete some stuff
@@ -17,6 +18,7 @@
     name:
       - ifupdown
       - resolvconf
+      - network-manager
     state: absent
 
 - name: Check if /usr/local/bin/helm exists

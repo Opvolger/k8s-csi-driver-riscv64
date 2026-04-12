@@ -1,9 +1,0 @@
----
-- name: Setup all controller nodes
-  hosts: localhost
-  tasks:
-    - name: Render the yaml
-      ansible.builtin.set_fact:
-        k8s_yaml: '{{ lookup("template", "templates/k0sctl.yaml") }}'
-
-    - debug: "{{ k8s_yaml }}"

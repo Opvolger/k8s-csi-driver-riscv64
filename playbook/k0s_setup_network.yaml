@@ -1,0 +1,42 @@
+- name: Setup for all or servers the correct ip
+  become: true
+  hosts: k0s,samba
+  tasks:
+    - name: Install and configure Apache
+      block:
+        - name: Template a file to /etc/netplan/01-network-manager-all.yaml
+          ansible.builtin.template:
+            src: 01-network-manager-all.yaml
+            dest: /etc/netplan/01-network-manager-all.yaml
+            owner: root
+            group: root
+            mode: '0600'
+          notify:
+            - Apply netplan
+            - Reboot
+
+        - name: Set ARP kernel settings (for virtual ip)
+          ansible.builtin.shell: |
+            sysctl -w net.ipv4.conf.all.arp_announce=2
+            sysctl -w net.ipv4.conf.all.arp_ignore=1
+          args:
+            executable: /bin/bash
+
+        - name: Enable systemd-networkd.service
+          ansible.builtin.systemd_service:
+            name: systemd-networkd.service
+            enabled: true
+
+      when: ansible_host != network.ipv4
+
+  handlers:
+    - name: Apply netplan
+      ansible.builtin.shell: |
+        netplan apply
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Reboot
+      become: true
+      ansible.builtin.reboot:
