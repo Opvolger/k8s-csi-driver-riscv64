@@ -33,7 +33,7 @@ values.yaml:
 image:
     baseRepo: opvolger
     nfs:
-        repository: nfsplugin
+        repository: /nfsplugin
         tag: v4.13.2
         pullPolicy: IfNotPresent
     csiProvisioner:
