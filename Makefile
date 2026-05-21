@@ -4,12 +4,12 @@ RELEASE_REPO ?= https://github.com/kubernetes/release.git
 RELEASE_PATCHES ?= patches/release
 
 # node-driver-registrar
-NODE_DRIVER_REGISTRAR_BRANCH ?= release-2.15
+NODE_DRIVER_REGISTRAR_BRANCH ?= release-2.16
 NODE_DRIVER_REGISTRAR_REPO ?= https://github.com/kubernetes-csi/node-driver-registrar
 NODE_DRIVER_REGISTRAR_PATCHES ?= patches/node-driver-registrar
 
 # livenessprobe
-LIVENESSPROBE_BRANCH ?= release-2.17
+LIVENESSPROBE_BRANCH ?= release-2.18
 LIVENESSPROBE_REPO ?= https://github.com/kubernetes-csi/livenessprobe.git
 LIVENESSPROBE_PATCHES ?= patches/livenessprobe
 
@@ -24,14 +24,24 @@ CSI_DRIVER_SMB_REPO ?= https://github.com/kubernetes-csi/csi-driver-smb.git
 CSI_DRIVER_SMB_PATCHES ?= patches/csi-driver-smb
 
 # csi-provisioner
-CSI_PROVISIONER_BRANCH ?= release-6.1
+CSI_PROVISIONER_BRANCH ?= release-6.2
 CSI_PROVISIONER_REPO ?= https://github.com/kubernetes-csi/external-provisioner.git
 CSI_PROVISIONER_PATCHES ?= patches/external-provisioner
 
 # csi-resizer
-CSI_RESIZER_BRANCH ?= release-2.0
+CSI_RESIZER_BRANCH ?= release-2.1
 CSI_RESIZER_REPO ?= https://github.com/kubernetes-csi/external-resizer.git
 CSI_RESIZER_PATCHES ?= patches/external-resizer
+
+# csi-driver-nfs
+CSI_DRIVER_NFS_BRANCH ?= release-4.13
+CSI_DRIVER_NFS_REPO ?= https://github.com/kubernetes-csi/csi-driver-nfs.git
+CSI_DRIVER_NFS_PATCHES ?= patches/csi-driver-nfs
+
+# gives csi-snapshotter, snapshot-controller and snapshot-conversion-webhook
+EXTERNAL_SNAPSHOTTER_BRANCH ?= release-8.5
+EXTERNAL_SNAPSHOTTER_REPO ?= https://github.com/kubernetes-csi/external-snapshotter.git
+EXTERNAL_SNAPSHOTTER_PATCHES ?= patches/external-snapshotter
 
 DOCKER_REGISTRY_NAME ?= opvolger
 BUILD_PLATFORMS_LINUX_ONLY ?= "linux amd64 amd64; linux riscv64 riscv64 -riscv64; linux arm64 arm64 -arm64"
@@ -55,11 +65,11 @@ define checkout_code_add_patches
 	cd $(BUILD_ROOT)/${$@_DIR} && git apply --ignore-whitespace --whitespace=fix ../../${$@_PATCHES}/*.patch || echo "no patches or error!"
 endef
 
-docker_images: docker_release docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer
+docker_images: docker_release docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer docker_csi_driver_nfs docker_external_snapshotter
 
 docker_release:
 	@$(call checkout_code_add_patches,"release",${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
-	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base push CONFIG="trixie" IMAGE_VERSION="trixie-v1.0.0" ALL_ARCH="amd64 arm64 riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base all-push CONFIG="trixie" IMAGE_VERSION="trixie-v1.0.0" ALL_ARCH="s390x arm ppc64le amd64 arm64 riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME)
 
 docker_csi_node_driver_registrar:
 	@$(call checkout_code_add_patches,"node-driver-registrar",${NODE_DRIVER_REGISTRAR_REPO},${NODE_DRIVER_REGISTRAR_BRANCH},${NODE_DRIVER_REGISTRAR_PATCHES})
@@ -75,8 +85,8 @@ docker_livenessprobe:
 
 docker_csi_driver_smb:
 	@$(call checkout_code_add_patches,"csi-driver-smb",${CSI_DRIVER_SMB_REPO},${CSI_DRIVER_SMB_BRANCH},${CSI_DRIVER_SMB_PATCHES})
-	$(MAKE) -C $(BUILD_ROOT)/csi-driver-smb container-all REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin
-	$(MAKE) -C $(BUILD_ROOT)/csi-driver-smb push-manifest REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-all REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin ALL_OS_ARCH.linux="linux-arm64 linux-riscv64 linux-amd64"
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push-manifest REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin ALL_OS_ARCH.linux="linux-arm64 linux-riscv64 linux-amd64"
 
 docker_csi_provisioner:
 	@$(call checkout_code_add_patches,"external-provisioner",${CSI_PROVISIONER_REPO},${CSI_PROVISIONER_BRANCH},${CSI_PROVISIONER_PATCHES})
@@ -85,3 +95,17 @@ docker_csi_provisioner:
 docker_csi_resizer:
 	@$(call checkout_code_add_patches,"external-resizer",${CSI_RESIZER_REPO},${CSI_RESIZER_BRANCH},${CSI_RESIZER_PATCHES})
 	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push-multiarch PULL_BASE_REF=${$@_BRANCH} REGISTRY_NAME=$(DOCKER_REGISTRY_NAME) BUILD_PLATFORMS=$(BUILD_PLATFORMS_LINUX_ONLY)
+
+docker_csi_driver_nfs:
+	@$(call checkout_code_add_patches,"csi-driver-nfs",${CSI_DRIVER_NFS_REPO},${CSI_DRIVER_NFS_BRANCH},${CSI_DRIVER_NFS_PATCHES})
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH="amd64"
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH="riscv64"
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH="arm64"
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="amd64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="arm64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push ALL_OS_ARCH="linux-arm64 linux-riscv64 linux-amd64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+
+docker_external_snapshotter:
+	@$(call checkout_code_add_patches,"external-snapshotter",${EXTERNAL_SNAPSHOTTER_REPO},${EXTERNAL_SNAPSHOTTER_BRANCH},${EXTERNAL_SNAPSHOTTER_PATCHES})
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push-multiarch PULL_BASE_REF=${$@_BRANCH} REGISTRY_NAME=$(DOCKER_REGISTRY_NAME) BUILD_PLATFORMS=$(BUILD_PLATFORMS)

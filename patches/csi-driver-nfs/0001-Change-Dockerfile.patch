@@ -1,5 +1,5 @@
 diff --git a/Dockerfile b/Dockerfile
-index 2fb3ca0a..62a03615 100644
+index 312240f9..c86bc8a4 100644
 --- a/Dockerfile
 +++ b/Dockerfile
 @@ -12,7 +12,7 @@
@@ -9,5 +9,5 @@ index 2fb3ca0a..62a03615 100644
 -FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.7
 +FROM opvolger/debian-base:trixie-v1.0.0
  
- RUN apt update && apt upgrade -y && apt-mark unhold libcap2
- RUN clean-install util-linux e2fsprogs mount ca-certificates udev xfsprogs btrfs-progs open-iscsi
+ ARG ARCH
+ ARG binary=./bin/${ARCH}/nfsplugin

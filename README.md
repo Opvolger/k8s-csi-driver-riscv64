@@ -25,6 +25,50 @@ docker login
 DOCKER_REGISTRY_NAME=opvolger make docker_images
 ```
 
+## Deploy CSI NFS
+
+values.yaml:
+
+```yaml
+image:
+    baseRepo: opvolger
+    nfs:
+        repository: nfsplugin
+        tag: 4.13-canary
+        pullPolicy: IfNotPresent
+    csiProvisioner:
+        repository: /csi-provisioner
+        tag: 6.2-canary
+        pullPolicy: IfNotPresent
+    csiResizer:
+        repository: /csi-resizer
+        tag: 2.0-canary
+        pullPolicy: IfNotPresent
+    csiSnapshotter:
+        repository: /csi-snapshotter
+        tag: 8.5-canary
+        pullPolicy: IfNotPresent
+    livenessProbe:
+        repository: /livenessprobe
+        tag: 2.17-canary
+        pullPolicy: IfNotPresent
+    nodeDriverRegistrar:
+        repository: /csi-node-driver-registrar
+        tag: 2.15-canary
+        pullPolicy: IfNotPresent
+    externalSnapshotter:
+        repository: /snapshot-controller
+        tag: 8.5-canary
+        pullPolicy: IfNotPresent
+# for k0s change the kubelet path
+kubeletDir: /var/lib/k0s/kubelet
+```
+
+```bash
+helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version 4.13.2 --values values.yaml
+```
+
 ## Deploy CSI SMB
 
 values.yaml:
@@ -72,7 +116,7 @@ helm install csi-driver-smb csi-driver-smb/csi-driver-smb --namespace kube-syste
 
 See github [https://github.com/kubernetes-csi/csi-driver-smb/blob/release-1.20/deploy/example/e2e_usage.md]
 
-Tested on linux/amd64 and linux/riscv64
+Tested on linux/amd64, linux/arm64 and linux/riscv64
 
 Here you see (debug kernel options, riscv64 with serial output)
 
