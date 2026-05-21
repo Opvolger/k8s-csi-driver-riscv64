@@ -98,13 +98,17 @@ docker_csi_resizer:
 
 docker_csi_driver_nfs:
 	@$(call checkout_code_add_patches,"csi-driver-nfs",${CSI_DRIVER_NFS_REPO},${CSI_DRIVER_NFS_BRANCH},${CSI_DRIVER_NFS_PATCHES})
+	# TODO make it better!
 	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH="amd64"
 	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH="riscv64"
 	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH="arm64"
-	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="amd64" REGISTRY=$(DOCKER_REGISTRY_NAME)
-	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME)
-	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="arm64" REGISTRY=$(DOCKER_REGISTRY_NAME)
-	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push ALL_OS_ARCH="linux-arm64 linux-riscv64 linux-amd64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="amd64" REGISTRY=$(DOCKER_REGISTRY_NAME) CI=
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME) CI=
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH="arm64" REGISTRY=$(DOCKER_REGISTRY_NAME) CI=
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push ARCH="amd64" REGISTRY=opvolger CI= IMAGE_VERSION=v4.13.2-linux-amd64
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push ARCH="riscv64" REGISTRY=opvolger CI= IMAGE_VERSION=v4.13.2-linux-riscv64
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push ARCH="arm64" REGISTRY=opvolger CI= IMAGE_VERSION=v4.13.2-linux-arm64
+	$(MAKE) -C $(BUILD_ROOT)/${$@_DIR} push ALL_OS_ARCH="linux-arm64 linux-riscv64 linux-amd64" REGISTRY=$(DOCKER_REGISTRY_NAME) CI=yes PUBLISH=false
 
 docker_external_snapshotter:
 	@$(call checkout_code_add_patches,"external-snapshotter",${EXTERNAL_SNAPSHOTTER_REPO},${EXTERNAL_SNAPSHOTTER_BRANCH},${EXTERNAL_SNAPSHOTTER_PATCHES})

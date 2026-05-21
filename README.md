@@ -34,7 +34,7 @@ image:
     baseRepo: opvolger
     nfs:
         repository: nfsplugin
-        tag: 4.13-canary
+        tag: v4.13.2
         pullPolicy: IfNotPresent
     csiProvisioner:
         repository: /csi-provisioner
