@@ -38,7 +38,7 @@ image:
         pullPolicy: IfNotPresent
     csiProvisioner:
         repository: /csi-provisioner
-        tag: 6.2-canary
+        tag: 6.1-canary
         pullPolicy: IfNotPresent
     csiResizer:
         repository: /csi-resizer
