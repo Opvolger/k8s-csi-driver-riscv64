@@ -3,6 +3,10 @@ RELEASE_BRANCH ?= master
 RELEASE_REPO ?= https://github.com/kubernetes/release.git
 RELEASE_PATCHES ?= patches/release
 RELEASE_ALL_ARCH ?= s390x arm ppc64le amd64 arm64 riscv64
+# debian-base image that is built and replaces registry.k8s.io/build-image/debian-base in the Dockerfiles
+DEBIAN_BASE_CONFIG ?= trixie
+DEBIAN_BASE_VERSION ?= trixie-v1.0.0
+DEBIAN_BASE_IMAGE = $(DOCKER_REGISTRY_NAME)/debian-base:$(DEBIAN_BASE_VERSION)
 
 # node-driver-registrar
 NODE_DRIVER_REGISTRAR_BRANCH ?= release-2.18
@@ -74,6 +78,8 @@ define checkout_code_add_patches
 	echo ${$@_BRANCH}
 	cd $(BUILD_ROOT)/${$@_DIR} && git clean -fd && git reset --hard
 	cd $(BUILD_ROOT)/${$@_DIR} && git apply --ignore-whitespace --whitespace=fix ../../${$@_PATCHES}/*.patch || echo "no patches or error!"
+	# use our own (riscv64) debian-base image instead of the upstream one
+	cd $(BUILD_ROOT)/${$@_DIR} && git grep -lE '^FROM registry.k8s.io/build-image/debian-base:' -- '*Dockerfile*' ':!vendor' | xargs -r sed -i -E 's#^FROM registry.k8s.io/build-image/debian-base:[^[:space:]]+#FROM $(DEBIAN_BASE_IMAGE)#'
 	# give every repo its own buildx builder, so they can be built in parallel
 	cd $(BUILD_ROOT)/${$@_DIR} && if [ -f release-tools/build.make ]; then sed -i 's/multiarchimage-buildertest/${$@_BUILDER}/g' release-tools/build.make; fi
 endef
@@ -92,7 +98,7 @@ docker_images_parallel: docker_csi_node_driver_registrar docker_csi_driver_iscsi
 
 docker_release:
 	@$(call checkout_code_add_patches,release,${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
-	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base all-push CONFIG="trixie" IMAGE_VERSION="trixie-v1.0.0" ALL_ARCH="$(RELEASE_ALL_ARCH)" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base all-push CONFIG="$(DEBIAN_BASE_CONFIG)" IMAGE_VERSION="$(DEBIAN_BASE_VERSION)" ALL_ARCH="$(RELEASE_ALL_ARCH)" REGISTRY=$(DOCKER_REGISTRY_NAME)
 
 docker_csi_node_driver_registrar:
 	@$(call checkout_code_add_patches,node-driver-registrar,${NODE_DRIVER_REGISTRAR_REPO},${NODE_DRIVER_REGISTRAR_BRANCH},${NODE_DRIVER_REGISTRAR_PATCHES})
