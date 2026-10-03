@@ -50,6 +50,8 @@ EXTERNAL_SNAPSHOTTER_REPO ?= https://github.com/kubernetes-csi/external-snapshot
 EXTERNAL_SNAPSHOTTER_PATCHES ?= patches/external-snapshotter
 
 DOCKER_REGISTRY_NAME ?= opvolger
+# CI (set to true by GitHub Actions) makes the smb and nfs Makefiles use e2e-<commit> image tags
+unexport CI
 BUILD_PLATFORMS_LINUX_ONLY ?= "linux amd64 amd64; linux riscv64 riscv64 -riscv64; linux arm64 arm64 -arm64"
 BUILD_PLATFORMS ?= "linux amd64 amd64; linux riscv64 riscv64 -riscv64; linux arm64 arm64 -arm64; windows amd64 amd64 .exe nanoserver:1809 servercore:ltsc2019; windows amd64 amd64 .exe nanoserver:ltsc2022 servercore:ltsc2022"
 
