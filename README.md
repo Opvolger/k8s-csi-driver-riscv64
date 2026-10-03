@@ -34,31 +34,31 @@ image:
     baseRepo: opvolger
     nfs:
         repository: /nfsplugin
-        tag: v4.13.2
+        tag: v4.13.4
         pullPolicy: IfNotPresent
     csiProvisioner:
         repository: /csi-provisioner
-        tag: 6.1-canary
+        tag: 6.3-canary
         pullPolicy: IfNotPresent
     csiResizer:
         repository: /csi-resizer
-        tag: 2.0-canary
+        tag: 2.3-canary
         pullPolicy: IfNotPresent
     csiSnapshotter:
         repository: /csi-snapshotter
-        tag: 8.5-canary
+        tag: 8.6-canary
         pullPolicy: IfNotPresent
     livenessProbe:
         repository: /livenessprobe
-        tag: 2.17-canary
+        tag: 2.20-canary
         pullPolicy: IfNotPresent
     nodeDriverRegistrar:
         repository: /csi-node-driver-registrar
-        tag: 2.15-canary
+        tag: 2.18-canary
         pullPolicy: IfNotPresent
     externalSnapshotter:
         repository: /snapshot-controller
-        tag: 8.5-canary
+        tag: 8.6-canary
         pullPolicy: IfNotPresent
 # for k0s change the kubelet path
 kubeletDir: /var/lib/k0s/kubelet
@@ -66,7 +66,7 @@ kubeletDir: /var/lib/k0s/kubelet
 
 ```bash
 helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
-helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version 4.13.2 --values values.yaml
+helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version 4.13.4 --values values.yaml
 ```
 
 ## Deploy CSI SMB
@@ -78,23 +78,23 @@ image:
   baseRepo: opvolger
   smb:
     repository: /smbplugin # done
-    tag: v1.20.0
+    tag: v1.20.3
     pullPolicy: IfNotPresent
   csiProvisioner:
     repository: /csi-provisioner # done
-    tag: 6.1-canary
+    tag: 6.3-canary
     pullPolicy: IfNotPresent
   csiResizer:
     repository: /csi-resizer # done
-    tag: 2.0-canary
+    tag: 2.3-canary
     pullPolicy: IfNotPresent
   livenessProbe:
     repository: /livenessprobe # done
-    tag: 2.17-canary
+    tag: 2.20-canary
     pullPolicy: IfNotPresent
   nodeDriverRegistrar:
     repository: /csi-node-driver-registrar  # done
-    tag: 2.15-canary
+    tag: 2.18-canary
     pullPolicy: IfNotPresent
   csiproxy:
     repository: ghcr.io/kubernetes-sigs/sig-windows/csi-proxy  # not needed only windows
@@ -109,7 +109,7 @@ windows:
 
 ```bash
 helm repo add csi-driver-smb https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/charts
-helm install csi-driver-smb csi-driver-smb/csi-driver-smb --namespace kube-system --version 1.20.0 --values values.yaml
+helm install csi-driver-smb csi-driver-smb/csi-driver-smb --namespace kube-system --version 1.20.3 --values values.yaml
 ```
 
 ## Use CSI SMB
@@ -184,7 +184,7 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: liveness-probe
-          image: opvolger/livenessprobe:2.17-canary # changed
+          image: opvolger/livenessprobe:2.20-canary # changed
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -205,7 +205,7 @@ spec:
           # created by privileged CSI driver container.
           securityContext:
             privileged: true
-          image: opvolger/csi-node-driver-registrar:2.15-canary # changed
+          image: opvolger/csi-node-driver-registrar:2.18-canary # changed
           args:
             - --v=2
             - --csi-address=/csi/csi.sock

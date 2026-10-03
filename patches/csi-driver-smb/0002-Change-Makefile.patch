@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index d60e69a47..b40b52826 100644
+index 4de4b30..a11835f 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -48,8 +48,8 @@ E2E_HELM_OPTIONS ?= --set image.smb.repository=$(REGISTRY)/$(IMAGENAME) --set im
@@ -29,3 +29,15 @@ index d60e69a47..b40b52826 100644
  
  .PHONY: container-windows
  container-windows:
+@@ -190,10 +190,7 @@ container-windows-hostprocess-latest:
+ container-all: smb-windows
+ 	docker buildx rm container-builder || true
+ 	docker buildx create --use --name=container-builder
+-	# enable qemu for arm64 build
+-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
+-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64,arm
+-	docker run --rm --privileged tonistiigi/binfmt --install all
++	# qemu (binfmt) is installed once by docker_images, reinstalling it here breaks parallel builds
+ 	for arch in $(ALL_ARCH.linux); do \
+ 		ARCH=$${arch} $(MAKE) smb; \
+ 		ARCH=$${arch} $(MAKE) container-linux; \

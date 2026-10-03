@@ -3,3 +3,4 @@ build/**
 playbook/temp/**/*.crt
 playbook/temp/**/*.key
 playbook/temp/**/*.pub
+*.log

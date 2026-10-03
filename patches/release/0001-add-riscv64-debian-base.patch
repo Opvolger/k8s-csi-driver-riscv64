@@ -1,0 +1,50 @@
+From 899221b64633566d6d5aff7afb0e29c3fb65dc8b Mon Sep 17 00:00:00 2001
+From: Opvolger <opvolger@gmail.com>
+Date: Sat, 3 Oct 2026 18:49:27 +0200
+Subject: [PATCH] add riscv64 support for debian-base trixie
+
+---
+ images/build/debian-base/Makefile      | 6 +++++-
+ images/build/debian-base/variants.yaml | 2 ++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/images/build/debian-base/Makefile b/images/build/debian-base/Makefile
+index d52a149..a187db8 100755
+--- a/images/build/debian-base/Makefile
++++ b/images/build/debian-base/Makefile
+@@ -24,7 +24,7 @@ CONFIG ?= trixie
+ 
+ TAR_FILE ?= rootfs.tar
+ ARCH ?= amd64
+-ALL_ARCH = amd64 arm arm64 ppc64le s390x
++ALL_ARCH ?= amd64 arm arm64 ppc64le s390x
+ 
+ QEMUVERSION=7.2.0-1
+ QEMUIMAGE ?= multiarch/qemu-user-static
+@@ -52,6 +52,10 @@ ifeq ($(ARCH),s390x)
+ 	BASEIMAGE?=s390x/debian:$(CONFIG)-slim
+ 	QEMUARCH=s390x
+ endif
++ifeq ($(ARCH),riscv64)
++	BASEIMAGE?=riscv64/debian:$(CONFIG)-slim
++	QEMUARCH=riscv64
++endif
+ 
+ sub-build-%:
+ 	$(MAKE) ARCH=$* build
+diff --git a/images/build/debian-base/variants.yaml b/images/build/debian-base/variants.yaml
+index ca58f66..2c67e67 100644
+--- a/images/build/debian-base/variants.yaml
++++ b/images/build/debian-base/variants.yaml
+@@ -2,6 +2,8 @@ variants:
+   bookworm:
+     CONFIG: 'bookworm'
+     IMAGE_VERSION: 'bookworm-v1.0.8'
++    ALL_ARCH: amd64 arm arm64 ppc64le s390x
+   trixie:
+     CONFIG: 'trixie'
+     IMAGE_VERSION: 'trixie-v1.0.0'
++    ALL_ARCH: amd64 arm arm64 ppc64le riscv64 s390x
+-- 
+2.55.0
+
