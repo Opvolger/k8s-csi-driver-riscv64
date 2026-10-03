@@ -25,6 +25,20 @@ docker login
 DOCKER_REGISTRY_NAME=opvolger make docker_images
 ```
 
+## Image versions
+
+The images are rebuilt every Monday by the GitHub pipeline, always from the newest `release-X.Y` branch of each repo (`csi-driver-iscsi` is built from `master`). The versions in the `values.yaml` examples below can therefore be older than the newest images. Check [Docker Hub](https://hub.docker.com/u/opvolger) for the current tags:
+
+- sidecars (`csi-provisioner`, `csi-resizer`, `csi-snapshotter`, `snapshot-controller`, `livenessprobe`, `csi-node-driver-registrar`): `X.Y-canary`, where `X.Y` is the release branch (e.g. `release-6.3` gives `6.3-canary`)
+- `nfsplugin` and `smbplugin`: the version of the release branch (e.g. `v4.13.4`); use the same version for the helm chart `--version`
+- `iscsiplugin`: `canary`
+
+To build a fixed branch, override its variable, example:
+
+```bash
+make docker_csi_resizer CSI_RESIZER_BRANCH=release-2.2
+```
+
 ## Deploy CSI NFS
 
 values.yaml:

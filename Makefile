@@ -1,3 +1,6 @@
+# newest release-X.Y branch of a git repo (override a *_BRANCH variable to use a fixed branch)
+latest_release_branch = $(or $(shell git ls-remote --heads $(1) 'release-*' | sed -n 's|.*refs/heads/\(release-[0-9]*\.[0-9]*\)$$|\1|p' | sort -V | tail -1),$(error no release branch found for $(1)))
+
 # k8s release
 RELEASE_BRANCH ?= master
 RELEASE_REPO ?= https://github.com/kubernetes/release.git
@@ -9,12 +12,12 @@ DEBIAN_BASE_VERSION ?= trixie-v1.0.0
 DEBIAN_BASE_IMAGE = $(DOCKER_REGISTRY_NAME)/debian-base:$(DEBIAN_BASE_VERSION)
 
 # node-driver-registrar
-NODE_DRIVER_REGISTRAR_BRANCH ?= release-2.18
+NODE_DRIVER_REGISTRAR_BRANCH ?= $(call latest_release_branch,$(NODE_DRIVER_REGISTRAR_REPO))
 NODE_DRIVER_REGISTRAR_REPO ?= https://github.com/kubernetes-csi/node-driver-registrar
 NODE_DRIVER_REGISTRAR_PATCHES ?= patches/node-driver-registrar
 
 # livenessprobe
-LIVENESSPROBE_BRANCH ?= release-2.20
+LIVENESSPROBE_BRANCH ?= $(call latest_release_branch,$(LIVENESSPROBE_REPO))
 LIVENESSPROBE_REPO ?= https://github.com/kubernetes-csi/livenessprobe.git
 LIVENESSPROBE_PATCHES ?= patches/livenessprobe
 
@@ -24,24 +27,24 @@ CSI_DRIVER_ISCSI_REPO ?= https://github.com/kubernetes-csi/csi-driver-iscsi.git
 CSI_DRIVER_ISCSI_PATCHES ?= patches/csi-driver-iscsi
 
 # csi-driver-smb
-CSI_DRIVER_SMB_BRANCH ?= release-1.20
+CSI_DRIVER_SMB_BRANCH ?= $(call latest_release_branch,$(CSI_DRIVER_SMB_REPO))
 CSI_DRIVER_SMB_REPO ?= https://github.com/kubernetes-csi/csi-driver-smb.git
 CSI_DRIVER_SMB_PATCHES ?= patches/csi-driver-smb
 CSI_DRIVER_SMB_ARCHS ?= amd64 riscv64 arm64
 CSI_DRIVER_SMB_WINDOWS ?= 1809 ltsc2022
 
 # csi-provisioner
-CSI_PROVISIONER_BRANCH ?= release-6.3
+CSI_PROVISIONER_BRANCH ?= $(call latest_release_branch,$(CSI_PROVISIONER_REPO))
 CSI_PROVISIONER_REPO ?= https://github.com/kubernetes-csi/external-provisioner.git
 CSI_PROVISIONER_PATCHES ?= patches/external-provisioner
 
 # csi-resizer
-CSI_RESIZER_BRANCH ?= release-2.3
+CSI_RESIZER_BRANCH ?= $(call latest_release_branch,$(CSI_RESIZER_REPO))
 CSI_RESIZER_REPO ?= https://github.com/kubernetes-csi/external-resizer.git
 CSI_RESIZER_PATCHES ?= patches/external-resizer
 
 # csi-driver-nfs
-CSI_DRIVER_NFS_BRANCH ?= release-4.13
+CSI_DRIVER_NFS_BRANCH ?= $(call latest_release_branch,$(CSI_DRIVER_NFS_REPO))
 # empty: use the IMAGE_VERSION of the csi-driver-nfs Makefile (latest release of the branch)
 CSI_DRIVER_NFS_VERSION ?=
 CSI_DRIVER_NFS_ARCHS ?= amd64 riscv64 arm64
@@ -49,7 +52,7 @@ CSI_DRIVER_NFS_REPO ?= https://github.com/kubernetes-csi/csi-driver-nfs.git
 CSI_DRIVER_NFS_PATCHES ?= patches/csi-driver-nfs
 
 # gives csi-snapshotter, snapshot-controller and snapshot-conversion-webhook
-EXTERNAL_SNAPSHOTTER_BRANCH ?= release-8.6
+EXTERNAL_SNAPSHOTTER_BRANCH ?= $(call latest_release_branch,$(EXTERNAL_SNAPSHOTTER_REPO))
 EXTERNAL_SNAPSHOTTER_REPO ?= https://github.com/kubernetes-csi/external-snapshotter.git
 EXTERNAL_SNAPSHOTTER_PATCHES ?= patches/external-snapshotter
 
@@ -71,12 +74,12 @@ define checkout_code_add_patches
 	$(eval $@_BUILDER = multiarchimage-buildertest-$(1))
 	mkdir -p $(BUILD_ROOT);
 	if [ -d "$(BUILD_ROOT)/${$@_DIR}" ]; then \
-		cd $(BUILD_ROOT)/${$@_DIR} && git switch ${$@_BRANCH}; \
+		cd $(BUILD_ROOT)/${$@_DIR} && git fetch origin && git switch ${$@_BRANCH}; \
 	else \
 		cd $(BUILD_ROOT) && git clone -b ${$@_BRANCH} ${$@_REPO}; \
 	fi
 	echo ${$@_BRANCH}
-	cd $(BUILD_ROOT)/${$@_DIR} && git clean -fd && git reset --hard
+	cd $(BUILD_ROOT)/${$@_DIR} && git clean -fd && git reset --hard origin/${$@_BRANCH}
 	cd $(BUILD_ROOT)/${$@_DIR} && git apply --ignore-whitespace --whitespace=fix ../../${$@_PATCHES}/*.patch || echo "no patches or error!"
 	# use our own (riscv64) debian-base image instead of the upstream one
 	cd $(BUILD_ROOT)/${$@_DIR} && git grep -lE '^FROM registry.k8s.io/build-image/debian-base:' -- '*Dockerfile*' ':!vendor' | xargs -r sed -i -E 's#^FROM registry.k8s.io/build-image/debian-base:[^[:space:]]+#FROM $(DEBIAN_BASE_IMAGE)#'
