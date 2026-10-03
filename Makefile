@@ -2,6 +2,7 @@
 RELEASE_BRANCH ?= master
 RELEASE_REPO ?= https://github.com/kubernetes/release.git
 RELEASE_PATCHES ?= patches/release
+RELEASE_ALL_ARCH ?= s390x arm ppc64le amd64 arm64 riscv64
 
 # node-driver-registrar
 NODE_DRIVER_REGISTRAR_BRANCH ?= release-2.18
@@ -22,6 +23,8 @@ CSI_DRIVER_ISCSI_PATCHES ?= patches/csi-driver-iscsi
 CSI_DRIVER_SMB_BRANCH ?= release-1.20
 CSI_DRIVER_SMB_REPO ?= https://github.com/kubernetes-csi/csi-driver-smb.git
 CSI_DRIVER_SMB_PATCHES ?= patches/csi-driver-smb
+CSI_DRIVER_SMB_ARCHS ?= amd64 riscv64 arm64
+CSI_DRIVER_SMB_WINDOWS ?= 1809 ltsc2022
 
 # csi-provisioner
 CSI_PROVISIONER_BRANCH ?= release-6.3
@@ -76,15 +79,18 @@ endef
 # debian-base (docker_release) is needed by iscsi, smb and nfs, and resets qemu, so build it first.
 # After that all other images are built in parallel (JOBS at a time).
 # 'docker buildx create --use' changes the builder for everyone, so every build pins its own builder with BUILDX_BUILDER.
-docker_images: docker_release
-	docker run --privileged --rm tonistiigi/binfmt --install all
+docker_images: docker_release binfmt
 	$(MAKE) -j$(JOBS) --output-sync=target docker_images_parallel
+
+# qemu, needed to build images for other architectures
+binfmt:
+	docker run --privileged --rm tonistiigi/binfmt --install all
 
 docker_images_parallel: docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer docker_csi_driver_nfs docker_external_snapshotter
 
 docker_release:
 	@$(call checkout_code_add_patches,release,${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
-	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base all-push CONFIG="trixie" IMAGE_VERSION="trixie-v1.0.0" ALL_ARCH="s390x arm ppc64le amd64 arm64 riscv64" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base all-push CONFIG="trixie" IMAGE_VERSION="trixie-v1.0.0" ALL_ARCH="$(RELEASE_ALL_ARCH)" REGISTRY=$(DOCKER_REGISTRY_NAME)
 
 docker_csi_node_driver_registrar:
 	@$(call checkout_code_add_patches,node-driver-registrar,${NODE_DRIVER_REGISTRAR_REPO},${NODE_DRIVER_REGISTRAR_BRANCH},${NODE_DRIVER_REGISTRAR_PATCHES})
@@ -100,8 +106,18 @@ docker_livenessprobe:
 
 docker_csi_driver_smb:
 	@$(call checkout_code_add_patches,csi-driver-smb,${CSI_DRIVER_SMB_REPO},${CSI_DRIVER_SMB_BRANCH},${CSI_DRIVER_SMB_PATCHES})
-	BUILDX_BUILDER=container-builder $(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} container-all REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin ALL_OS_ARCH.linux="linux-arm64 linux-riscv64 linux-amd64"
-	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} push-manifest REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin ALL_OS_ARCH.linux="linux-arm64 linux-riscv64 linux-amd64"
+	docker buildx rm smb-builder || true
+	docker buildx create --name smb-builder
+	for arch in $(CSI_DRIVER_SMB_ARCHS); do \
+		$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} smb ARCH=$$arch && \
+		BUILDX_BUILDER=smb-builder $(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} container-linux ARCH=$$arch REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin || exit 1; \
+	done
+	for osversion in $(CSI_DRIVER_SMB_WINDOWS); do \
+		$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} smb-windows ARCH=amd64 && \
+		BUILDX_BUILDER=smb-builder $(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} container-windows ARCH=amd64 OSVERSION=$$osversion REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin || exit 1; \
+	done
+	docker buildx rm smb-builder
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} push-manifest REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGENAME=smbplugin ALL_OS_ARCH.linux="$(addprefix linux-,$(CSI_DRIVER_SMB_ARCHS))" ALL_OSVERSIONS.windows="$(CSI_DRIVER_SMB_WINDOWS)"
 
 docker_csi_provisioner:
 	@$(call checkout_code_add_patches,external-provisioner,${CSI_PROVISIONER_REPO},${CSI_PROVISIONER_BRANCH},${CSI_PROVISIONER_PATCHES})
