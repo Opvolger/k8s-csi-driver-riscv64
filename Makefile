@@ -38,9 +38,9 @@ CSI_RESIZER_PATCHES ?= patches/external-resizer
 
 # csi-driver-nfs
 CSI_DRIVER_NFS_BRANCH ?= release-4.13
-CSI_DRIVER_NFS_VERSION ?= v4.13.4
+# empty: use the IMAGE_VERSION of the csi-driver-nfs Makefile (latest release of the branch)
+CSI_DRIVER_NFS_VERSION ?=
 CSI_DRIVER_NFS_ARCHS ?= amd64 riscv64 arm64
-CSI_DRIVER_NFS_IMAGE = $(DOCKER_REGISTRY_NAME)/nfsplugin:$(CSI_DRIVER_NFS_VERSION)
 CSI_DRIVER_NFS_REPO ?= https://github.com/kubernetes-csi/csi-driver-nfs.git
 CSI_DRIVER_NFS_PATCHES ?= patches/csi-driver-nfs
 
@@ -131,13 +131,17 @@ docker_csi_resizer:
 
 docker_csi_driver_nfs:
 	@$(call checkout_code_add_patches,csi-driver-nfs,${CSI_DRIVER_NFS_REPO},${CSI_DRIVER_NFS_BRANCH},${CSI_DRIVER_NFS_PATCHES})
+	version="$(CSI_DRIVER_NFS_VERSION)"; \
+	[ -n "$$version" ] || version=$$(sed -n 's/^IMAGE_VERSION ?= *\([^[:space:]]*\).*/\1/p' $(BUILD_ROOT)/${$@_DIR}/Makefile); \
+	image=$(DOCKER_REGISTRY_NAME)/nfsplugin:$$version; \
+	echo "building $$image"; \
 	for arch in $(CSI_DRIVER_NFS_ARCHS); do \
-		$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH=$$arch IMAGE_VERSION=$(CSI_DRIVER_NFS_VERSION) && \
-		BUILDX_BUILDER=default $(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH=$$arch REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGE_VERSION=$(CSI_DRIVER_NFS_VERSION) CI= && \
-		docker push $(CSI_DRIVER_NFS_IMAGE)-linux-$$arch || exit 1; \
-	done
-	docker manifest create --amend $(CSI_DRIVER_NFS_IMAGE) $(foreach arch,$(CSI_DRIVER_NFS_ARCHS),$(CSI_DRIVER_NFS_IMAGE)-linux-$(arch))
-	docker manifest push --purge $(CSI_DRIVER_NFS_IMAGE)
+		$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} nfs ARCH=$$arch IMAGE_VERSION=$$version && \
+		BUILDX_BUILDER=default $(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} container-build ARCH=$$arch REGISTRY=$(DOCKER_REGISTRY_NAME) IMAGE_VERSION=$$version && \
+		docker push $$image-linux-$$arch || exit 1; \
+	done; \
+	docker manifest create --amend $$image $(foreach arch,$(CSI_DRIVER_NFS_ARCHS),$$image-linux-$(arch)) && \
+	docker manifest push --purge $$image
 
 docker_external_snapshotter:
 	@$(call checkout_code_add_patches,external-snapshotter,${EXTERNAL_SNAPSHOTTER_REPO},${EXTERNAL_SNAPSHOTTER_BRANCH},${EXTERNAL_SNAPSHOTTER_PATCHES})

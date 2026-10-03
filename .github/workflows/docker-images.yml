@@ -6,6 +6,9 @@ on:
       - master
     paths-ignore:
       - '**.md'
+  # every monday, so the images get the latest (security) updates of the debian base image
+  schedule:
+    - cron: '0 3 * * 1'
   workflow_dispatch:
 
 # never push the same images from two runs at the same time
