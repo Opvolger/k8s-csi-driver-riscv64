@@ -1,0 +1,14 @@
+diff --git a/.ko.yaml b/.ko.yaml
+new file mode 100644
+index 0000000..8a2ccdd
+--- /dev/null
++++ b/.ko.yaml
+@@ -0,0 +1,8 @@
++# same base image and build flags as the official cert-manager images (make/base_images.mk, make/00_mod.mk)
++defaultBaseImage: gcr.io/distroless/static-debian13
++defaultFlags:
++  - -trimpath
++defaultLdflags:
++  - -w -s
++  - -X github.com/cert-manager/cert-manager/pkg/util.AppVersion={{.Git.Tag}}
++  - -X github.com/cert-manager/cert-manager/pkg/util.AppGitCommit={{.Git.FullCommit}}

@@ -4,6 +4,8 @@ I wanted to install a CSI provider on my k0s riscv64 cluster. This wasn't possib
 
 Ultimately, I opted to run my cluster with an SMB share and didn't test the ISCSI.
 
+Besides the CSI drivers this repo also builds riscv64 images of [cert-manager](https://github.com/cert-manager/cert-manager) (`cert-manager-controller`, `cert-manager-cainjector`, `cert-manager-webhook`, `cert-manager-acmesolver` and `cert-manager-startupapicheck`) and of the [TransIP DNS01 webhook](https://github.com/demeesterdev/cert-manager-webhook-transip) (`cert-manager-webhook-transip`).
+
 ## Pull Requests
 
 TODO, add list of open pull-requests
@@ -32,11 +34,26 @@ The images are rebuilt every Monday by the GitHub pipeline, always from the newe
 - sidecars (`csi-provisioner`, `csi-resizer`, `csi-snapshotter`, `snapshot-controller`, `livenessprobe`, `csi-node-driver-registrar`): `X.Y-canary`, where `X.Y` is the release branch (e.g. `release-6.3` gives `6.3-canary`)
 - `nfsplugin` and `smbplugin`: the version of the release branch (e.g. `v4.13.4`); use the same version for the helm chart `--version`
 - `iscsiplugin`: `canary`
+- `cert-manager-controller`, `cert-manager-cainjector`, `cert-manager-webhook`, `cert-manager-acmesolver` and `cert-manager-startupapicheck`: the newest release tag of cert-manager (e.g. `v1.21.2`); use the same version for the helm chart `--version`
+- `cert-manager-webhook-transip`: the newest release tag (e.g. `v0.1.4`), also pushed without `v` (e.g. `0.1.4`)
 
 To build a fixed branch, override its variable, example:
 
 ```bash
 make docker_csi_resizer CSI_RESIZER_BRANCH=release-2.2
+```
+
+cert-manager and cert-manager-webhook-transip are built from a release tag instead of a branch, example:
+
+```bash
+make docker_cert_manager CERT_MANAGER_TAG=v1.20.0
+make docker_cert_manager_webhook_transip CERT_MANAGER_WEBHOOK_TRANSIP_TAG=v0.1.3
+```
+
+To build only some of the cert-manager images, set `CERT_MANAGER_BINS`, example:
+
+```bash
+make docker_cert_manager CERT_MANAGER_BINS="controller cainjector webhook"
 ```
 
 ## Deploy CSI NFS
@@ -162,6 +179,56 @@ opvolger@sfvf2lite:~$ [   47.494639] kube-bridge: port 1(vethdc1c21c8) entered b
 [   71.265666] CIFS: enabling forcegid mount option implicitly because gid= option is specified
 [   71.274146] CIFS: Attempting to mount //192.168.2.203/kubernetes
 ```
+
+## Deploy cert-manager
+
+values.yaml:
+
+```yaml
+crds:
+  enabled: true
+image:
+  repository: opvolger/cert-manager-controller
+webhook:
+  image:
+    repository: opvolger/cert-manager-webhook
+cainjector:
+  image:
+    repository: opvolger/cert-manager-cainjector
+# used for HTTP01 challenges
+acmesolver:
+  image:
+    repository: opvolger/cert-manager-acmesolver
+# helm post-install check
+startupapicheck:
+  image:
+    repository: opvolger/cert-manager-startupapicheck
+```
+
+The image tag defaults to the version of the helm chart, so use the same version as the images.
+
+```bash
+helm repo add jetstack https://charts.jetstack.io
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version v1.21.2 --values values.yaml
+```
+
+## Deploy cert-manager-webhook-transip
+
+values.yaml:
+
+```yaml
+image:
+  repository: opvolger/cert-manager-webhook-transip
+  tag: 0.1.4
+  pullPolicy: IfNotPresent
+```
+
+```bash
+helm repo add cert-manager-webhook-transip https://demeester.dev/cert-manager-webhook-transip
+helm install cert-manager-webhook-transip cert-manager-webhook-transip/cert-manager-webhook-transip --namespace cert-manager --values values.yaml
+```
+
+See [cert-manager-webhook-transip](https://github.com/demeesterdev/cert-manager-webhook-transip#issuer) for the `ClusterIssuer` and the TransIP credentials secret.
 
 ## Deploy CSI ISCSI
 

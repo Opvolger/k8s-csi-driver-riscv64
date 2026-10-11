@@ -56,6 +56,8 @@ jobs:
           - docker_csi_resizer
           - docker_csi_driver_nfs
           - docker_external_snapshotter
+          - docker_cert_manager
+          - docker_cert_manager_webhook_transip
     name: ${{ matrix.target }}
     steps:
       - name: Free disk space

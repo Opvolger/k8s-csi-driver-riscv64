@@ -1,5 +1,7 @@
 # newest release-X.Y branch of a git repo (override a *_BRANCH variable to use a fixed branch)
 latest_release_branch = $(or $(shell git ls-remote --heads $(1) 'release-*' | sed -n 's|.*refs/heads/\(release-[0-9]*\.[0-9]*\)$$|\1|p' | sort -V | tail -1),$(error no release branch found for $(1)))
+# newest vX.Y.Z release tag of a git repo, without pre-releases (override a *_TAG variable to use a fixed tag)
+latest_release_tag = $(or $(shell git ls-remote --tags --refs $(1) 'v*' | sed -n 's|.*refs/tags/\(v[0-9]*\.[0-9]*\.[0-9]*\)$$|\1|p' | sort -V | tail -1),$(error no release tag found for $(1)))
 
 # k8s release
 RELEASE_BRANCH ?= master
@@ -56,6 +58,19 @@ EXTERNAL_SNAPSHOTTER_BRANCH ?= $(call latest_release_branch,$(EXTERNAL_SNAPSHOTT
 EXTERNAL_SNAPSHOTTER_REPO ?= https://github.com/kubernetes-csi/external-snapshotter.git
 EXTERNAL_SNAPSHOTTER_PATCHES ?= patches/external-snapshotter
 
+# gives cert-manager-controller, -cainjector, -webhook, -acmesolver and -startupapicheck (built with ko)
+CERT_MANAGER_TAG ?= $(call latest_release_tag,$(CERT_MANAGER_REPO))
+CERT_MANAGER_REPO ?= https://github.com/cert-manager/cert-manager.git
+CERT_MANAGER_PATCHES ?= patches/cert-manager
+CERT_MANAGER_BINS ?= controller cainjector webhook acmesolver startupapicheck
+CERT_MANAGER_PLATFORMS ?= linux/amd64,linux/arm64,linux/riscv64
+
+# cert-manager-webhook-transip
+CERT_MANAGER_WEBHOOK_TRANSIP_TAG ?= $(call latest_release_tag,$(CERT_MANAGER_WEBHOOK_TRANSIP_REPO))
+CERT_MANAGER_WEBHOOK_TRANSIP_REPO ?= https://github.com/demeesterdev/cert-manager-webhook-transip.git
+CERT_MANAGER_WEBHOOK_TRANSIP_PATCHES ?= patches/cert-manager-webhook-transip
+CERT_MANAGER_WEBHOOK_TRANSIP_PLATFORMS ?= linux/amd64,linux/arm64,linux/riscv64
+
 DOCKER_REGISTRY_NAME ?= opvolger
 # CI (set to true by GitHub Actions) makes the smb and nfs Makefiles use e2e-<commit> image tags
 unexport CI
@@ -66,6 +81,7 @@ BUILD_ROOT ?= build/
 # number of images that are built at the same time by docker_images
 JOBS ?= 4
 
+# the 3rd argument is a branch or a tag
 define checkout_code_add_patches
 	$(eval $@_DIR = $(1))
 	$(eval $@_REPO = $(2))
@@ -74,12 +90,12 @@ define checkout_code_add_patches
 	$(eval $@_BUILDER = multiarchimage-buildertest-$(1))
 	mkdir -p $(BUILD_ROOT);
 	if [ -d "$(BUILD_ROOT)/${$@_DIR}" ]; then \
-		cd $(BUILD_ROOT)/${$@_DIR} && git fetch origin && git switch ${$@_BRANCH}; \
+		cd $(BUILD_ROOT)/${$@_DIR} && git fetch --tags --force origin && { git switch ${$@_BRANCH} 2>/dev/null || git switch -f --detach ${$@_BRANCH}; }; \
 	else \
 		cd $(BUILD_ROOT) && git clone -b ${$@_BRANCH} ${$@_REPO}; \
 	fi
 	echo ${$@_BRANCH}
-	cd $(BUILD_ROOT)/${$@_DIR} && git clean -fd && git reset --hard origin/${$@_BRANCH}
+	cd $(BUILD_ROOT)/${$@_DIR} && git clean -fd && git reset --hard $$(git rev-parse -q --verify origin/${$@_BRANCH} || echo ${$@_BRANCH})
 	cd $(BUILD_ROOT)/${$@_DIR} && git apply --ignore-whitespace --whitespace=fix ../../${$@_PATCHES}/*.patch || echo "no patches or error!"
 	# use our own (riscv64) debian-base image instead of the upstream one
 	cd $(BUILD_ROOT)/${$@_DIR} && git grep -lE '^FROM registry.k8s.io/build-image/debian-base:' -- '*Dockerfile*' ':!vendor' | xargs -r sed -i -E 's#^FROM registry.k8s.io/build-image/debian-base:[^[:space:]]+#FROM $(DEBIAN_BASE_IMAGE)#'
@@ -97,7 +113,7 @@ docker_images: docker_release binfmt
 binfmt:
 	docker run --privileged --rm tonistiigi/binfmt --install all
 
-docker_images_parallel: docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer docker_csi_driver_nfs docker_external_snapshotter
+docker_images_parallel: docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer docker_csi_driver_nfs docker_external_snapshotter docker_cert_manager docker_cert_manager_webhook_transip
 
 docker_release:
 	@$(call checkout_code_add_patches,release,${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
@@ -155,3 +171,19 @@ docker_csi_driver_nfs:
 docker_external_snapshotter:
 	@$(call checkout_code_add_patches,external-snapshotter,${EXTERNAL_SNAPSHOTTER_REPO},${EXTERNAL_SNAPSHOTTER_BRANCH},${EXTERNAL_SNAPSHOTTER_PATCHES})
 	BUILDX_BUILDER=${$@_BUILDER} $(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} push-multiarch PULL_BASE_REF=${$@_BRANCH} REGISTRY_NAME=$(DOCKER_REGISTRY_NAME) BUILD_PLATFORMS=$(BUILD_PLATFORMS)
+
+# cert-manager builds its images with ko (make ko-images-push), the image tag is the git tag (e.g. v1.21.2)
+docker_cert_manager:
+	@$(call checkout_code_add_patches,cert-manager,${CERT_MANAGER_REPO},${CERT_MANAGER_TAG},${CERT_MANAGER_PATCHES})
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} go-workspace
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR} ko-images-push KO_REGISTRY=$(DOCKER_REGISTRY_NAME) KO_PLATFORM=$(CERT_MANAGER_PLATFORMS) KO_BINS="$(CERT_MANAGER_BINS)"
+
+# image tags: the git tag (e.g. v0.1.4) and the version without 'v' (e.g. 0.1.4, used by the helm chart)
+docker_cert_manager_webhook_transip:
+	@$(call checkout_code_add_patches,cert-manager-webhook-transip,${CERT_MANAGER_WEBHOOK_TRANSIP_REPO},${CERT_MANAGER_WEBHOOK_TRANSIP_TAG},${CERT_MANAGER_WEBHOOK_TRANSIP_PATCHES})
+	docker buildx rm ${$@_BUILDER} || true
+	docker buildx create --name ${$@_BUILDER}
+	tag=${$@_BRANCH}; image=$(DOCKER_REGISTRY_NAME)/cert-manager-webhook-transip; \
+	docker buildx build --builder ${$@_BUILDER} --push --platform $(CERT_MANAGER_WEBHOOK_TRANSIP_PLATFORMS) \
+		-t $$image:$$tag -t $$image:$${tag#v} $(BUILD_ROOT)/${$@_DIR}
+	docker buildx rm ${$@_BUILDER}
