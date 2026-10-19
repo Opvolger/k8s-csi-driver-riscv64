@@ -6,6 +6,7 @@ latest_release_tag = $(or $(shell git ls-remote --tags --refs $(1) 'v*' | sed -n
 # k8s release
 RELEASE_BRANCH ?= master
 RELEASE_REPO ?= https://github.com/kubernetes/release.git
+# upstream debian-base builds with 'docker build --platform', riscv64 only has to be added to PLATFORMS
 RELEASE_PATCHES ?= patches/release
 RELEASE_ALL_ARCH ?= s390x arm ppc64le amd64 arm64 riscv64
 # debian-base image that is built and replaces registry.k8s.io/build-image/debian-base in the Dockerfiles
@@ -103,10 +104,10 @@ define checkout_code_add_patches
 	cd $(BUILD_ROOT)/${$@_DIR} && if [ -f release-tools/build.make ]; then sed -i 's/multiarchimage-buildertest/${$@_BUILDER}/g' release-tools/build.make; fi
 endef
 
-# debian-base (docker_release) is needed by iscsi, smb and nfs, and resets qemu, so build it first.
+# debian-base (docker_release) is needed by iscsi, smb and nfs, so build it first.
 # After that all other images are built in parallel (JOBS at a time).
 # 'docker buildx create --use' changes the builder for everyone, so every build pins its own builder with BUILDX_BUILDER.
-docker_images: docker_release binfmt
+docker_images: docker_release
 	$(MAKE) -j$(JOBS) --output-sync=target docker_images_parallel
 
 # qemu, needed to build images for other architectures
@@ -115,9 +116,10 @@ binfmt:
 
 docker_images_parallel: docker_csi_node_driver_registrar docker_csi_driver_iscsi docker_livenessprobe docker_csi_driver_smb docker_csi_provisioner docker_csi_resizer docker_csi_driver_nfs docker_external_snapshotter docker_cert_manager docker_cert_manager_webhook_transip
 
-docker_release:
+# the debian-base build runs commands in the image of every platform, so it needs qemu (binfmt)
+docker_release: binfmt
 	@$(call checkout_code_add_patches,release,${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
-	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base all-push CONFIG="$(DEBIAN_BASE_CONFIG)" IMAGE_VERSION="$(DEBIAN_BASE_VERSION)" ALL_ARCH="$(RELEASE_ALL_ARCH)" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base manifest CONFIG="$(DEBIAN_BASE_CONFIG)" IMAGE_VERSION="$(DEBIAN_BASE_VERSION)" PLATFORMS="$(addprefix linux/,$(RELEASE_ALL_ARCH))" REGISTRY=$(DOCKER_REGISTRY_NAME)
 
 docker_csi_node_driver_registrar:
 	@$(call checkout_code_add_patches,node-driver-registrar,${NODE_DRIVER_REGISTRAR_REPO},${NODE_DRIVER_REGISTRAR_BRANCH},${NODE_DRIVER_REGISTRAR_PATCHES})
