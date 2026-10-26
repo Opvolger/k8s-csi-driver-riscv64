@@ -119,7 +119,10 @@ docker_images_parallel: docker_csi_node_driver_registrar docker_csi_driver_iscsi
 # the debian-base build runs commands in the image of every platform, so it needs qemu (binfmt)
 docker_release: binfmt
 	@$(call checkout_code_add_patches,release,${RELEASE_REPO},${RELEASE_BRANCH},${RELEASE_PATCHES})
-	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base manifest CONFIG="$(DEBIAN_BASE_CONFIG)" IMAGE_VERSION="$(DEBIAN_BASE_VERSION)" PLATFORMS="$(addprefix linux/,$(RELEASE_ALL_ARCH))" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	$(MAKE) -j1 -C $(BUILD_ROOT)/${$@_DIR}/images/build/debian-base push CONFIG="$(DEBIAN_BASE_CONFIG)" IMAGE_VERSION="$(DEBIAN_BASE_VERSION)" PLATFORMS="$(addprefix linux/,$(RELEASE_ALL_ARCH))" REGISTRY=$(DOCKER_REGISTRY_NAME)
+	# not the upstream 'manifest' target: 'docker manifest create' fails on the image indexes (with attestations)
+	# that newer docker versions (containerd image store) push, 'buildx imagetools create' handles them
+	docker buildx imagetools create -t $(DEBIAN_BASE_IMAGE) $(foreach arch,$(RELEASE_ALL_ARCH),$(DOCKER_REGISTRY_NAME)/debian-base-$(arch):$(DEBIAN_BASE_VERSION))
 
 docker_csi_node_driver_registrar:
 	@$(call checkout_code_add_patches,node-driver-registrar,${NODE_DRIVER_REGISTRAR_REPO},${NODE_DRIVER_REGISTRAR_BRANCH},${NODE_DRIVER_REGISTRAR_PATCHES})
